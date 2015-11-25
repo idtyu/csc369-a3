@@ -1,13 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <ext2.h>
 
-
-#define disk_blocks 128
-#define block_size 1024
-#define inode_numb 32
-#define sector_size 512
-
-typedef{
-	
-}
+int fd;
+unsigned char *disk;
+struct ext2_super_block *super_block;
+struct ext2_group_desc *group_desc[];

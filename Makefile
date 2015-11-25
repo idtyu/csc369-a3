@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS= -Wall -g -o
 LIBFLAGS= -Wall -g -c
-DEP= ext2_lib.h
+DEP= ext2_lib.h ext2.h
 
 all:  ext2_lib.o ext2_ls ext2_cp ext2_mkdir ext2_ln ext2_rm
 
