@@ -16,11 +16,16 @@ void init(char* dir){
 	    exit(1);
     }
 
-    super_block = (struct ext2_super_block *)(disk + 1024);
-    group_desc = (struct ext2_group_desc*)READ_ONE_BLOCK(super_block->s_first_data_block);
-    getbitmap();
-    read_inode_table_n_blocks();
+    struct ext2_super_block *super_block = (struct ext2_super_block *)(disk + EXT2_BLOCK_SIZE);
+    struct ext2_group_desc *group_desc = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE*2);
+    char* block_bitmap = (char*)(disk + (group_desc->bg_block_bitmap)* EXT2_BLOCK_SIZE);
+    char* inodebitmap = (char*)(disk + (group_desc->bg_inode_bitmap)* EXT2_BLOCK_SIZE);
+    struct ext2_inode* inode_table = (struct ext2_inode*)(disk + (group_desc->bg_inode_table * EXT2_BLOCK_SIZE));
+    
+    //getbitmap();
+    //read_inode_table_n_blocks();
 }
+
 
 int bitmapToBlock(char* bitmap, unsigned int index){
     unsigned int arrayPosition = index / 8 ;
@@ -62,7 +67,57 @@ void read_inode_table_n_blocks(){
 }
 
 /*for both inode and block bitmaps*/
-void getbitmap(char* data){
-    inode_bitmap = (char*)READ_ONE_BLOCK(group_desc->bg_inode_bitmap);
-    block_bitmap = (char*)READ_ONE_BLOCK(group_desc->bg_block_bitmap);
+//void getbitmap(char* data){
+   // inode_bitmap = (char*)READ_ONE_BLOCK(group_desc->bg_inode_bitmap);
+   // block_bitmap = (char*)READ_ONE_BLOCK(group_desc->bg_block_bitmap);
+//}
+
+
+
+int next_path(char path[]){
+	int len = strlen(path);
+	if (len ==1){
+		return 0;
+	}
+	int i;
+	for (i = 1;i < len; i++){
+		if (path[i] ==  '/' ){
+			break;
+		}
+	}
+	return i;
+}
+
+int get_path_inode(char path[], int inode_num){
+	 char new_path[strlen(path)+1];
+	 memcpy(new_path, path, strlen(path));
+     new_path[ strlen(path)] = 0;
+     int pos;
+	 
+	 while ((pos = next_path(new_path) ) > 0){
+		char dir[pos+1];
+		int i;
+		for (i = 0; i < pos - 1; i++){
+			dir[i] = new_path[i+1];
+		}
+		dir[pos-1] = 0;
+		
+		int size = 0;
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		char* new = malloc(sizeof(char)*strlen(path));
+		new = (char*)(new_path + pos);
+		memcpy(new_path, new, strlen(new));
+		new_path[strlen(new)] = 0;
+		printf("%s\n",new_path);
+		printf("%s\n",dir);
+	}
+	return 1;
 }
