@@ -1,6 +1,0 @@
-gcc -Wall -c ext2_lib.c 
-gcc -Wall -g ext2_ls.c -o ext2_ls  ext2_lib.o
-gcc -Wall -g ext2_cp.c -o  ext2_lib.o
-gcc -Wall -g ext2_mkdir.c -o  ext2_lib.o
-gcc -Wall -g ext2_ln.c -o  ext2_lib.o
-gcc -Wall -g ext2_rm.c -o  ext2_lib.o

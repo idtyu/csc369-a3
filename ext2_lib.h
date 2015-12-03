@@ -10,8 +10,17 @@ struct ext2_super_block *super_block;
 struct ext2_group_desc *group_desc;
 char* inode_bitmap;
 char* block_bitmap;
-struct ext2_inode* inode_table;
-struct ext2_dir_entry_2*  block_table;
+struct ext2_inode* inode_tables;
+struct ext2_dir_entry_2*  block_tables;
+int block_count;
+int free_inode;
+int free_block;
+
+struct inode_dir_pair{
+    struct ext2_inode parent;
+    struct ext2_dir_entry_2 child_blocks;
+};
+
 
 #define READ_ONE_BLOCK(blocknum) (disk+ (blocknum*EXT2_BLOCK_SIZE));
 void init();
