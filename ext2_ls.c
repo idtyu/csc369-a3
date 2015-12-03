@@ -51,6 +51,7 @@ int get_path_inode(char path[],int inode_idx,struct ext2_inode* inode_table){
             dir[i] = new_path[i+1];
         }
         dir[pos-1] = 0;
+
         
         int size = 0;
         
@@ -188,7 +189,7 @@ int main(int argc, char **argv) {
     int inode_num = get_path_inode(path_name, EXT2_ROOT_INO, inode_table);
     //printf("%d\n",inode_num);
     if (inode_num == -1){
-        printf("error:Directory Not Found");
+        printf("No such file or diretory");
         return -1;
     }
 

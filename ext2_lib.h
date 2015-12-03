@@ -14,6 +14,7 @@ struct ext2_dir_entry_2*  block_table;
 
 int next_path(char path[]);
 int get_path_inode(char path[], int inode_num);
+void print_inode();
 
 #define READ_ONE_BLOCK(blocknum) (disk+ blocknum*EXT2_BLOCK_SIZE);
 #define INODESIZE sizeof(struct ext2_inode);

@@ -121,3 +121,5 @@ int get_path_inode(char path[], int inode_num){
 	}
 	return 1;
 }
+
+
