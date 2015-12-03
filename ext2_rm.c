@@ -125,6 +125,25 @@ int find_inode_index(char* dir, int i, struct ext2_inode* inode_table, int flag)
    
    }
 
+void delete_inode(struct ext2_inode* inode_table, int inode_num){
+     struct ext2_inode target_inode = inode_table[inode_num];
+     int num_block = dir_inode->i_size / EXT2_BLOCK_SIZE;
+     struct ext2_dir_entry_2* entry;
+     int block_num;
+     int i;
+     for (i=0; i< num_block; i++){
+        block_num = target_inode->i_block[i];
+        entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * block_num); 
+
+
+
+     }
+
+
+    
+}
+
+
 
 int main(int argc, char **argv) {
 
@@ -179,7 +198,7 @@ int main(int argc, char **argv) {
     }
 
     //ls_print(inode_table,inode_num-1);
-
+   delete_inode(inode_table,inode_num -1)
 
    return 0;
 
