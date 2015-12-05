@@ -3,6 +3,7 @@
   <logicalFolder name="root" displayName="root" projectFiles="true" kind="ROOT">
     <df root="." name="0">
       <in>ext2_cp.c</in>
+      <in>ext2_lib.c</in>
       <in>ext2_ln.c</in>
       <in>ext2_ls.c</in>
       <in>ext2_mkdir.c</in>
@@ -30,7 +31,7 @@
         <rebuildPropChanged>false</rebuildPropChanged>
       </toolsSet>
       <flagsDictionary>
-        <element flagsID="0" commonFlags="-mtune=generic -march=x86-64 -g"/>
+        <element flagsID="0" commonFlags="-g"/>
       </flagsDictionary>
       <codeAssistance>
       </codeAssistance>
@@ -40,11 +41,6 @@
           <buildCommand>${MAKE} -f Makefile</buildCommand>
           <cleanCommand>${MAKE} -f Makefile clean</cleanCommand>
           <executablePath></executablePath>
-          <cTool>
-            <incDir>
-              <pElem>.</pElem>
-            </incDir>
-          </cTool>
         </makeTool>
         <preBuild>
           <preBuildCommandWorkingDir>.</preBuildCommandWorkingDir>
@@ -54,6 +50,8 @@
       <item path="ext2_cp.c" ex="false" tool="0" flavor2="3">
         <cTool flags="0">
         </cTool>
+      </item>
+      <item path="ext2_lib.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="ext2_ln.c" ex="false" tool="0" flavor2="3">
         <cTool flags="0">
