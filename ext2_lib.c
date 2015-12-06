@@ -22,34 +22,33 @@ struct inode_dir_pair fileExists(char* matchName) {
             struct ext2_inode inode_table = inode_tables[i];
             int j;
             for (j = 0; j < inode_table.i_blocks; j++) {
+                 
                 struct ext2_dir_entry_2* block_table;
                 if (inode_table.i_block[j] == 0) {
                     break;
                 }
                 block_table = (struct ext2_dir_entry_2*) READ_ONE_BLOCK(inode_table.i_block[j]);
-                int inode_size = inode_table.i_size;
                 int size = 0;
-                char file_name[255 + 1];
-                //printf("%d \n",block_table->i_size);
+                int inode_size = inode_table.i_size;
                 
+                while (size < inode_size){
+                    char file_name[255 + 1];
                     if (block_table->file_type == 2 || block_table->file_type == 1) {
-                        memcpy(file_name, block_table->name, block_table->name_len);
+                        strncpy(file_name, block_table->name, block_table->name_len);
                         file_name[block_table->name_len] = 0;
-                    } else{
+                    }else{
                         break;
                     }
                     size += block_table->rec_len;
                     if (strcmp(matchName, file_name) == 0) {
-                        newPair.child_blocks = *   block_table;
-                        newPair.parent = inode_table;
-                        strncpy(newPair.name, matchName,block_table->name_len);
-                        printf("newPair->name, %s \n",newPair.name);
-                        newPair.inode_number = i;
-                        return newPair;
+                            newPair.child_blocks = *block_table;
+                            newPair.parent = inode_table;
+                            newPair.inode_number = i;
+                            return newPair;
+                        }
+                        block_table = (void *) block_table + block_table->rec_len;
                     }
-                    block_table = (void *) block_table + block_table->rec_len;
-                }
-            
+            }
         }
     }
     return newPair;
@@ -82,15 +81,13 @@ int get_path_inode(char path[],struct ext2_inode* inode_table){
      int pos;
      int inode_idx=0;
      
-     while ((pos = next_path(new_path) ) > 1){
-        
+     while ((pos = next_path(new_path) ) > 1){        
         char* new = malloc(sizeof(char)*strlen(path));
         new = (char*)(new_path + pos);
         memcpy(new_path, new, strlen(new));
         new_path[strlen(new)] = 0;
-        //call find_inode_index to find the inode
+        //call find_inode_index to find the inode        
         struct inode_dir_pair toFind  = fileExists(path);
-     
         inode_idx = toFind.inode_number;
         if (inode_idx == -1){
             return -1; //directory not found
@@ -157,6 +154,11 @@ void printBits(unsigned char block){
 
 void print_inode_table(struct ext2_inode* inode_table){
     printf("type:%d, size:%d, link %d,blocks, %d \n",inode_table->i_mode,inode_table->i_size,inode_table->i_links_count,inode_table->i_blocks);
+    int i;
+    printf("block contents \n");
+    for(i=0;i<inode_table->i_blocks;i++){
+        printf("Block: %d \n",inode_table->i_block[i]);
+    }
 }
 
 void print_dir_table(struct ext2_dir_entry_2* dir_table){

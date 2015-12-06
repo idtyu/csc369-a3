@@ -21,7 +21,6 @@ struct inode_dir_pair newPair;
 struct inode_dir_pair{
     struct ext2_inode parent;
     struct ext2_dir_entry_2 child_blocks;
-    char* name;
     int inode_number;
 };
 
@@ -36,4 +35,5 @@ int next_path(char path[]);
 int get_path_inode(char path[],struct ext2_inode* inode_table);
 void print_inode_table(struct ext2_inode* inode_table);
 void print_dir_table(struct ext2_dir_entry_2* dir_table);
+void print_inode_table(struct ext2_inode* inode_table);
 struct inode_dir_pair fileExists(char* matchName);
