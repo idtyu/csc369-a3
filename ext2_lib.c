@@ -167,3 +167,17 @@ void print_dir_table(struct ext2_dir_entry_2* dir_table){
      print_name[dir_table->name_len] = 0;
      printf("[%d]File Name: %s, name length:%d, file length:%d , it is of type %d\n",dir_table->inode,print_name,dir_table->name_len,dir_table->rec_len,dir_table->file_type);            
 }
+
+void print_bitmap(){
+     int i;
+    printf("block bitmap:");
+        for(i=0;i<super_block->s_blocks_count/8;i++){
+             printBits(block_bitmap[i]);
+        }
+        printf("\n");
+        printf("inode bitmap:");
+        for(i=0;i<(super_block->s_inodes_count/8);i++){
+            printBits(inode_bitmap[i]);
+        }
+        printf("\n");
+}

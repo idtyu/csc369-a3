@@ -37,3 +37,4 @@ void print_inode_table(struct ext2_inode* inode_table);
 void print_dir_table(struct ext2_dir_entry_2* dir_table);
 void print_inode_table(struct ext2_inode* inode_table);
 struct inode_dir_pair fileExists(char* matchName);
+void print_bitmap();

@@ -17,15 +17,13 @@ int allocateBlock(int begin) {
 }
 
 char* setBitMap(char* bitmap,int position,int size){
-    int i;
     unsigned char mask[] = {1, 2, 4, 8, 16, 32, 64, 128};
-    for(i=0;i<(size/8);i++){      
-        unsigned int arrayPosition = position / 8;
-        unsigned int shiftPosition = position % 8 -1;
-        bitmap[arrayPosition] |= mask[shiftPosition];
-        return bitmap;
-    }
-    return NULL;
+    unsigned int arrayPosition = position / 8;
+    unsigned int shiftPosition = (position % 8) -1;
+    unsigned char newBit = bitmap[arrayPosition];
+    newBit |= mask[shiftPosition];
+    memcpy(&bitmap[arrayPosition],&newBit,8);
+    return bitmap;
 }
  
 int main(int argc, char *argv[]) {
@@ -38,29 +36,29 @@ int main(int argc, char *argv[]) {
     struct inode_dir_pair toFind = fileExists(argv[2]);
     if (toFind.inode_number >-1) {        
         int directory = get_path_inode(argv[3],inode_tables);
-        struct ext2_inode newTable = inode_tables[directory];
+        struct ext2_inode newTable = *(struct ext2_inode*)READ_ONE_BLOCK(directory);
         if(directory>-1){
-            print_dir_table(&(toFind.child_blocks));
             /*copy diretory block to the new one*/
-            unsigned int blockPosition = allocateBlock(inode_tables[directory].i_block[newTable.i_blocks-1]) + 1;           
+            unsigned int blockPosition = allocateBlock(newTable.i_block[newTable.i_blocks-1]) + 1;           
             memcpy(disk+(blockPosition*EXT2_BLOCK_SIZE),&(toFind.child_blocks),EXT2_BLOCK_SIZE);
             /*modifiy current inode table*/
-            int newBPosition = inode_tables[directory].i_blocks;
-            inode_tables[directory].i_block[newBPosition] = blockPosition;
-            inode_tables[directory].i_blocks++;
-            int currentInodeBlock = group_desc->bg_inode_table + directory;
-            printf("current block: %d \n",currentInodeBlock);
-            memcpy(disk+(currentInodeBlock*EXT2_BLOCK_SIZE),&(newTable),EXT2_BLOCK_SIZE);
-            char* newInode = READ_ONE_BLOCK(currentInodeBlock);
-            printf("new inode table:");
-            print_inode_table(newInode);
+            int newBPosition = newTable.i_blocks;
+            memcpy(newTable.i_block+newBPosition,&blockPosition,sizeof(unsigned int));
+            unsigned int temp_block = newTable.i_blocks++;
+            memcpy(&newTable.i_blocks,&temp_block,sizeof(unsigned int));
+            newTable.i_blocks++;
+            memcpy(disk+((group_desc->bg_inode_table+directory)*EXT2_BLOCK_SIZE),&(newTable),EXT2_BLOCK_SIZE);
+            
             /*set new bit maps*/
-            char* newBitmap = setBitMap(block_bitmap,blockPosition,super_block->s_blocks_count);      
-            memcpy(disk+(group_desc->bg_block_bitmap)*EXT2_BLOCK_SIZE,newBitmap,EXT2_BLOCK_SIZE);
-            /*change group descriptor*/
-            group_desc->bg_free_blocks_count--; 
-            memcpy(disk+(group_desc->bg_inode_table+directory)*EXT2_BLOCK_SIZE,group_desc,EXT2_BLOCK_SIZE);
-            if (msync(disk, 128 * 1024, MS_SYNC) == -1)
+            //setBitMap(block_bitmap,blockPosition,super_block->s_blocks_count);   
+                      
+            printf("New Structure: \n");
+            //print_bitmap();
+            print_inode_table(&inode_tables[directory]);
+            
+            int k = msync(disk, 128 * 1024, MS_SYNC) ;
+            printf("%d \n",k);
+            if (k == -1)
             {
                 perror("Could not sync the file to disk");
             }
