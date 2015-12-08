@@ -11,14 +11,14 @@
 
 unsigned char *disk;
 char dir[1024+1];
-char* inodebitmap;
+void* inodebitmap;
 char* blockbitmap;
 struct ext2_inode* inode_table;
 
 //make them global
 
 int find_inode_index(char* dir, int i,struct ext2_inode* inode_table,int flag);
-void bitmap_reset(char* bitmap, int index, int value);
+void bitmap_reset(void* bitmap, int index, int value);
 void change_bitmap( struct ext2_inode result_inode, char* blockbitmap,char* inodebitmap,int inode_num);
 int count_free(char* bitmap,int total_num);
 
@@ -132,10 +132,14 @@ int find_inode_index(char* dir, int inode_num, struct ext2_inode* inode_table, i
                         }
 
                         
-                        entry = (void *)entry + entry->rec_len;
                         
-                        curr_pos += entry->rec_len;
-                        last_rec_len = entry->rec_len;
+                        
+                        if (found == 0){
+                            curr_pos += entry->rec_len;
+                            last_rec_len = entry->rec_len;
+                            //printf("last len: %d\n",last_rec_len);
+                        }
+                        entry = (void *)entry + entry->rec_len;
 
                         
                
@@ -146,56 +150,40 @@ int find_inode_index(char* dir, int inode_num, struct ext2_inode* inode_table, i
         //handle the delete movement
         //return entry->inode;
         return_value = entry->inode;
+        //printf("%d",return_value);
         
-        if (entry->rec_len == EXT2_BLOCK_SIZE){//whole block is filled
-            target_inode.i_blocks -= 2;
-            target_inode.i_size -= EXT2_BLOCK_SIZE;
-            bitmap_reset(blockbitmap,block_num - 1,0);
-        }
-        else{
-            //if the file is the first one in the block
-            if (curr_pos == 0){
-                int r_len = entry->rec_len;
-                void* start = (void*)entry + r_len;//new start entry;
-                void* new_start = (void*)entry;
-                while(size < EXT2_BLOCK_SIZE){ // find the end of the block
-                    
-                    last_rec_len = entry->rec_len;
-                    size += entry->rec_len;
-                    entry = (void *)entry + entry->rec_len;
-
-
-                }
-                entry = (void*)entry - last_rec_len; // the position just before the file that is deleted
-                entry->rec_len += r_len;
-                memcpy(new_start,start,EXT2_BLOCK_SIZE-r_len);
-
-
-
-
-
-
-            }
-            else{
-                int r_len = entry->rec_len;
-                entry = (void*)entry - last_rec_len;//return to last position
-                entry->rec_len = r_len+last_rec_len; //junmp the target file length
-                 printf("in");
-
-            }
-
-        }
-        printf("about to return\n");
+        
+            
+            
+        int r_len = entry->rec_len;
+        entry = (void*)entry - last_rec_len;//return to last position
+        entry->rec_len = r_len+last_rec_len; //junmp the target file length
+        //printf("len: %d\n",entry->rec_len);
+        //printf("about to return\n");
+        bitmap_reset(inodebitmap, return_value - 1, 0);
+        //clean_inode(int return_value);
         return return_value;
+        //printf("last len: %d\n",last_rec_len);
+
+           
+
+       
+       
     }
     //return entry->inode;
     return return_value;
 } 
 
-void bitmap_reset(char* bitmap, int index, int value){
+//void clean_inode(int inode_idx){
+    //struct ext2_inode target_inode = inode_table[inode_idx-1];
+    
+//}
+
+void bitmap_reset(void* bitmap, int index, int value){
     unsigned int arrayPosition = index / 8;
     unsigned int shiftPosition = index % 8;
     char* byte = bitmap + arrayPosition;
+    
     *byte = (*byte & ~(1 << shiftPosition)) | (value << shiftPosition);
     //return 1;
 
@@ -259,7 +247,7 @@ int main(int argc, char **argv) {
 
     
     blockbitmap = (char*)(disk + (gd->bg_block_bitmap)* EXT2_BLOCK_SIZE);
-    inodebitmap = (char*)(disk + (gd->bg_inode_bitmap)* EXT2_BLOCK_SIZE);
+    inodebitmap = disk + (gd->bg_inode_bitmap)* EXT2_BLOCK_SIZE;
     inode_table = (struct ext2_inode*)(disk + (gd->bg_inode_table * EXT2_BLOCK_SIZE));
 
     int total_inode = sb->s_inodes_count;
@@ -268,7 +256,7 @@ int main(int argc, char **argv) {
     //char* path_list[255+1];
 
     int inode_num = get_path_inode(path_name, EXT2_ROOT_INO, inode_table);
-    printf("%d\n",inode_num);
+    //printf("%d\n",inode_num);
     if (inode_num == -2){
         //printf("rm: %s:  is a directory\n",dir);
         errno = EISDIR;
@@ -285,10 +273,14 @@ int main(int argc, char **argv) {
     //TODO
     struct ext2_inode result_inode = inode_table[inode_num - 1];
     result_inode.i_links_count -= 1;
-    if (result_inode.i_links_count == 0){
-        change_bitmap(result_inode,blockbitmap,inodebitmap,inode_num);
-         
+    int num_block = result_inode.i_size / EXT2_BLOCK_SIZE;
+    int idx;
+    for (idx=0; idx< num_block; idx++){
+        int block_num = result_inode.i_block[idx];
+        bitmap_reset(blockbitmap,block_num,0);
+
     }
+    
 
 
 
@@ -296,37 +288,9 @@ int main(int argc, char **argv) {
     //ls_print(inode_table,inode_num-1);
    //delete_inode(inode_table,inode_num -1)
     gd->bg_free_blocks_count = count_free(blockbitmap,total_block);
-    printf("done\n");
+    //printf("done\n");
     gd->bg_free_inodes_count = count_free(inodebitmap,total_inode);
 
    return 0;
-
-}
-
-void change_bitmap( struct ext2_inode result_inode, char* blockbitmap,char* inodebitmap,int inode_num){
-        int i;
-        int num_of_block = result_inode.i_blocks/2;
-        //int target_block_idx;
-        printf("\nnew:%d\n",num_of_block);
-        if (num_of_block > 12){
-           
-            for (i = 0; i < 12; i++){
-                //int target_block_idx = result_inode.i_block[i];
-                bitmap_reset(blockbitmap,result_inode.i_block[i]-1,0);
-            }
-            int start_block_indx = result_inode.i_block[12];
-            bitmap_reset(blockbitmap, start_block_indx -1,0);
-            char* result_block = (char*)(disk + EXT2_BLOCK_SIZE * start_block_indx);
-            for(i = 0; i <num_of_block - 13; i++){
-                bitmap_reset(blockbitmap, *result_block - 1,0);
-                result_block ++;
-
-            }
-        }else{
-            for(i = 0; i < num_of_block; i++){
-                bitmap_reset(blockbitmap,result_inode.i_block[i]-1,0);
-            }
-        }
-        bitmap_reset(inodebitmap,inode_num-1,0);
 
 }
