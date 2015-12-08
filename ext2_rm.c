@@ -11,8 +11,12 @@
 
 unsigned char *disk;
 char dir[1024+1];
+char* inodebitmap;
+char* blockbitmap;
+struct ext2_inode* inode_table;
 
 int find_inode_index(char* dir, int i,struct ext2_inode* inode_table,int flag);
+int bitmap_reset(char* bitmap, int index, int value);
 
 #define MAX_PATH_DIR 100 /*the absolute path max have 100 die*/
 
@@ -77,22 +81,24 @@ int get_path_inode(char path[],int inode_idx,struct ext2_inode* inode_table){
     }
     return inode_idx;
 }
-int find_inode_index(char* dir, int i, struct ext2_inode* inode_table, int flag){
-   
-                int idx;
-                for (idx = 0; idx < 16; idx++)
-                {
-                    int num = inode_table[i].i_block[idx];
-                    if (num == 0){
-                        break;
-                    }
-                    //printf("   DIR BLOCK NUM: %d (for inode %d)\n",num,i+1);
-                
-                    int size = 0;
-                    int inode_size = inode_table[i].i_size;
+int find_inode_index(char* dir, int inode_num, struct ext2_inode* inode_table, int flag){
+    int found = 0;
+    struct ext2_inode target_inode = inode_table[inode_num];
+    int num_block = target_inode.i_size / EXT2_BLOCK_SIZE;
+    struct ext2_dir_entry_2* entry;
+    int block_num;
+    int idx;
+    for (idx=0; idx< num_block; idx++){
+                block_num = target_inode.i_block[idx];
+                entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * block_num); 
 
-                    struct ext2_dir_entry_2* entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * num);
-                    while (size < inode_size){
+                int size = 0;
+                
+                int last_rec_len = 0;
+                int curr_pos = 0;
+                
+                while (size < EXT2_BLOCK_SIZE){
+                    size += entry->rec_len;
                        //file type
                         //file_type   Description
                         //0   Unknown
@@ -111,37 +117,86 @@ int find_inode_index(char* dir, int i, struct ext2_inode* inode_table, int flag)
                         
                             if (strncmp(file_name, dir, entry->name_len) == 0 && strlen(dir) == entry->name_len){
                                 if (entry->file_type != flag) return -2;
-                                return entry->inode;
+                                else if (flag != 1) return entry->inode;
+                                else{
+                                    found = 1;
+                                    break;
+                                }
+                                //return entry->inode;
                             }
                         }
 
-                        size += entry->rec_len;
+                        
                         entry = (void *)entry + entry->rec_len;
+                        if (flag== 1){
+                            curr_pos += entry->rec_len;
+                            last_rec_len = entry->rec_len;
+
+                        }
                
-                    }
-            
                 }
-                return -1; //return -1 for not found
-   
-   }
+            
+        
+        if (found == 0) return -1; //return -1 for not found
+        //handle the delete movement
+        //return entry->inode;
+        printf("in");
+        if (entry->rec_len == EXT2_BLOCK_SIZE){//whole block is filled
+            target_inode.i_blocks -= 2;
+            target_inode.i_size -= EXT2_BLOCK_SIZE;
+            bitmap_reset(blockbitmap,block_num - 1,0);
+        }
+        else{
+            //if the file is the first one in the block
+            if (curr_pos == 0){
+                int r_len = entry->rec_len;
+                void* start = (void*)entry + r_len;//new start entry;
+                void* new_start = (void*)entry;
+                while(size < EXT2_BLOCK_SIZE){ // find the end of the block
+                    
+                    last_rec_len = entry->rec_len;
+                    size += entry->rec_len;
+                    entry = (void *)entry + entry->rec_len;
 
-void delete_inode(struct ext2_inode* inode_table, int inode_num){
-     struct ext2_inode target_inode = inode_table[inode_num];
-     int num_block = dir_inode->i_size / EXT2_BLOCK_SIZE;
-     struct ext2_dir_entry_2* entry;
-     int block_num;
-     int i;
-     for (i=0; i< num_block; i++){
-        block_num = target_inode->i_block[i];
-        entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * block_num); 
+
+                }
+                entry = (void*)entry - last_rec_len; // the position just before the file that is deleted
+                entry->rec_len += r_len;
+                memcpy(new_start,start,EXT2_BLOCK_SIZE-r_len);
 
 
 
-     }
 
 
-    
+
+            }
+            else{
+                int r_len = entry->rec_len;
+                entry = (void*)entry - last_rec_len;//return to last position
+                entry->rec_len = r_len+last_rec_len;
+                 printf("in");
+
+            }
+
+        }
+    }
+    return entry->inode;
+} 
+
+int bitmap_reset(char* bitmap, int index, int value){
+    unsigned int arrayPosition = index / 8;
+    unsigned int shiftPosition = index % 8;
+    char* byte = bitmap + arrayPosition;
+    *byte = (*byte & ~(1 << shiftPosition)) | (value << shiftPosition);
+    return 1;
+
+
+
 }
+   
+
+
+
 
 
 
@@ -177,12 +232,14 @@ int main(int argc, char **argv) {
     //get the suprt block and group descripter
     struct ext2_super_block *sb = (struct ext2_super_block *)(disk + 1024);
     struct ext2_group_desc *gd = (struct ext2_group_desc *)(disk + 1024*2);
-    struct ext2_inode* inode_table = (struct ext2_inode*)(disk + (gd->bg_inode_table * EXT2_BLOCK_SIZE));
+    blockbitmap = (char*)(disk + (gd->bg_block_bitmap)* EXT2_BLOCK_SIZE);
+    inodebitmap = (char*)(disk + (gd->bg_inode_bitmap)* EXT2_BLOCK_SIZE);
+    inode_table = (struct ext2_inode*)(disk + (gd->bg_inode_table * EXT2_BLOCK_SIZE));
   
     //char* path_list[255+1];
 
     int inode_num = get_path_inode(path_name, EXT2_ROOT_INO, inode_table);
-    //printf("%d\n",inode_num);
+    printf("%d\n",inode_num);
     if (inode_num == -2){
         //printf("rm: %s:  is a directory\n",dir);
         errno = EISDIR;
@@ -196,9 +253,11 @@ int main(int argc, char **argv) {
         exit(errno);
 
     }
+    //TODO
+    
 
     //ls_print(inode_table,inode_num-1);
-   delete_inode(inode_table,inode_num -1)
+   //delete_inode(inode_table,inode_num -1)
 
    return 0;
 
