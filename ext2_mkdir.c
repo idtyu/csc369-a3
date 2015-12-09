@@ -22,7 +22,7 @@ struct ext2_inode* inode_table;
 int find_inode_index(char* dir, int i,struct ext2_inode* inode_table,int flag);
 //void bitmap_reset(char* bitmap, int index, int value);
 
-int count_free(char* bitmap,int total_num);
+
 
 #define MAX_PATH_DIR 100 /*the absolute path max have 100 dir*/
 
@@ -218,7 +218,7 @@ void fill_bitmap(int num, struct ext2_super_block *sb, struct ext2_group_desc *g
 int main(int argc, char **argv) {
 
     if(argc != 3) {
-        fprintf(stderr, "Usage: ext2_ls <image file name> <directory>\n");
+        fprintf(stderr, "Usage: ext2_mkdir <image file name> <directory>\n");
         exit(1);
     }
     

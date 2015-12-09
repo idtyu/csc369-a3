@@ -3,10 +3,13 @@ CFLAGS= -Wall -g -o
 LIBFLAGS= -Wall -g -c
 DEP= ext2_lib.h ext2.h
 
-all:  ext2_ls ext2_rm ext2_mkdir ext2_cp readimage
+all:  ext2_ls ext2_rm ext2_mkdir ext2_cp ext2_ln readimage
 
 ext2_ls: ext2_ls.c
 	gcc -o ext2_ls ext2_ls.c
+
+ext2_ln: ext2_ln.c
+	gcc -o ext2_ln ext2_ln.c
 
 ext2_rm: ext2_rm.c
 	gcc -o ext2_rm ext2_rm.c

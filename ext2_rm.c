@@ -19,7 +19,7 @@ struct ext2_inode* inode_table;
 
 int find_inode_index(char* dir, int i,struct ext2_inode* inode_table,int flag);
 
-#define MAX_PATH_DIR 100 /*the absolute path max have 100 die*/
+#define MAX_PATH_DIR 100 /*the absolute path max have 100 dir*/
 
 #define BASE_OFFSET 1024  /* location of the super-block in the first group */
 
@@ -198,7 +198,7 @@ void reset_bitmap(int num, struct ext2_super_block *sb, struct ext2_group_desc *
 int main(int argc, char **argv) {
 
     if(argc != 3) {
-        fprintf(stderr, "Usage: ext2_ls <image file name> <directory>\n");
+        fprintf(stderr, "Usage: ext2_rm <image file name> <file location in image >\n");
         exit(1);
     }
     

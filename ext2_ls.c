@@ -12,7 +12,7 @@ unsigned char *disk;
 
 int find_inode_index(char* dir, int i,struct ext2_inode* inode_table);
 
-#define MAX_PATH_DIR 100 /*the absolute path max have 100 die*/
+#define MAX_PATH_DIR 100 /*the absolute path max have 100 dir*/
 
 #define BASE_OFFSET 1024  /* location of the super-block in the first group */
 
