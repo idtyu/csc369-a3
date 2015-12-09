@@ -9,6 +9,8 @@
 #include <string.h>
 #include <errno.h>
 
+#define align4(x) ((x - 1) / 4 + 1) * 4
+
 unsigned char *disk;
 char dir[1024+1];
 char* inodebitmap;
@@ -150,13 +152,15 @@ int find_inode_index(char* dir, int inode_num, struct ext2_inode* inode_table,in
    return -1;
 }
 
+
+
 int find_free (struct ext2_super_block *sb, struct ext2_group_desc *gd, int flag){ //flag 1 for block, 2 for inode
     char *bitmap;
     int i;
     int j;
     int count;
     if (flag == 1){
-        if (sb->s_free_blocks_count == 0) return 0;
+        if (sb->s_free_blocks_count <= 0) return 0;
         bitmap = (char *)(disk + (gd->bg_block_bitmap * EXT2_BLOCK_SIZE));
         i = 0;
         j = 0;
@@ -164,14 +168,43 @@ int find_free (struct ext2_super_block *sb, struct ext2_group_desc *gd, int flag
 
     }
     else if (flag == 2){
-        if (sb->s_free_inodes_count == 0) return 0;
+        if (sb->s_free_inodes_count <= 0) return 0;
         bitmap = (char *)(disk + (gd->bg_inode_bitmap * EXT2_BLOCK_SIZE));
         i = 1;
         j =  (EXT2_GOOD_OLD_FIRST_INO - 1) % 8;
         count = sb->s_free_inodes_count;
     }
 
-    while 
+    while ( i  <  count / 8){
+        while (j < 8){
+            if (((bitmap[i] >> j) & 1) == 0){
+                break;
+            }
+            j++;
+        }
+        if (j < 8) {break;}
+        j = 0;
+        i++;
+    }
+    return (i*8)+j+1;
+}
+
+void fill_bitmap(int num, struct ext2_super_block *sb, struct ext2_group_desc *gd, int flag){ //flag 1 for block, 2 for inode
+    char * bitmap;
+    if (flag == 1){
+        sb->s_free_blocks_count -= 1;
+        bitmap = (char *)(disk + gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
+    }
+    else if (flag == 2){
+        sb->s_free_inodes_count -= 1;
+        bitmap = (char *)(disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
+
+    }
+    char byte;
+    byte = bitmap[(num - 1) / 8];
+    int pos = (num - 1) % 8;
+
+    bitmap[(num - 1) / 8] = byte | (1 << pos);
 }
 
 
@@ -227,7 +260,7 @@ int main(int argc, char **argv) {
     int inode_num = get_path_inode(path_name, EXT2_ROOT_INO, inode_table);
 
     printf("%d\n",inode_num);
-     printf("%s\n",dir);
+    printf("%s\n",dir);
 
     if (inode_num == -1){
         //printf("rm: %s: No such file or directory\n",dir);
@@ -246,18 +279,93 @@ int main(int argc, char **argv) {
         exit(errno);
 
     }
-    
-    
-
     //find a empty inode and block, get their index
+    int free_block = find_free(sb,gd,1);
+    int free_inode = find_free(sb,gd,2);
 
+    if (free_block == 0){
+        errno = ENOSPC;
+        perror("No free block");
+        exit(errno);
+    }
+    if (free_inode == 0){
+        errno = ENOSPC;
+        perror("No free inode");
+        exit(errno);
+    }
+    printf("block:%d\n", free_block);
+    printf("inode:%d\n", free_inode);
 
+    
+    struct ext2_inode *new_inode = &(inode_table[free_inode - 1]);
    
+    //fill the inform in the free inode
+    fill_bitmap(free_inode, sb, gd, 2); // add 1 to proper postion of the inode_bitmap
+
+    new_inode->i_links_count = 2; //empty dir
+    new_inode->i_blocks = 2;
+    new_inode->i_size = EXT2_BLOCK_SIZE;
+    new_inode->i_mode = EXT2_S_IFDIR;
+   
+    new_inode->i_block[0] = free_block;
+    //fill the i_block by 0
+    int idx;
+    for (idx = 1; idx < 15; idx ++){
+        inode_table[free_inode - 1].i_block[idx] = 0;
+    }
 
 
+     //printf("test\n");
+    //fill the inform in the new dir block
+    struct ext2_dir_entry_2* n_dir = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE*free_block);
+    
+    n_dir->inode = free_inode;
+    n_dir->rec_len = 12;
+    n_dir->name_len = 1;
+    n_dir->file_type = EXT2_FT_DIR;//2
+    strncpy(n_dir->name, ".", 1);
 
-  
+    n_dir = (void*) n_dir + 12;
+    
+    n_dir->inode = inode_num; //parent inode index
+    n_dir->rec_len = EXT2_BLOCK_SIZE - 12;
+    n_dir->name_len = 2;
+    n_dir->file_type = EXT2_FT_DIR;//2
+    strncpy(n_dir->name, "..", 2);
 
+     fill_bitmap(free_block, sb, gd, 1);  //add 1 to proper postion of the block_bitmap
+    printf("test\n");
+
+    //put back to parent dir block
+     // Two situation, one is find enough space for new dir's rec_len in parent dir's block,
+     //the other is not enough space, so new one more block for parent dir
+     
+     int enough = 0;
+      //dir is the name for new dir
+     int new_dir_len = align4(strlen(dir)) + 8;
+     struct ext2_inode parent_inode = inode_table[inode_num - 1];
+     printf("parent_inode:%d\n", inode_num);
+     int i;
+     struct ext2_dir_entry_2* curr_entry;
+     for(i = 0; i < 12 && parent_inode.i_block[i]; i++){
+        int curr_block = parent_inode.i_block[i];
+        printf("curr_block:%d\n", curr_block);
+        curr_entry = (struct ext2_dir_entry_2*)( disk + EXT2_BLOCK_SIZE * curr_block);
+        int curr_size = 0;
+        while (curr_size < EXT2_BLOCK_SIZE){
+            curr_size += curr_entry->rec_len;
+            int need_len = (align4(curr_entry->name_len)+ 8 + new_dir_len);
+            if (curr_size == EXT2_BLOCK_SIZE && curr_entry->rec_len >= need_len){
+                enough = 1;
+                break;
+            }
+            curr_entry = (void*)curr_entry + curr_entry->rec_len;
+        }
+
+     }
+     printf("i:%d\n",i);
+
+     
    return 0;
 
 }
