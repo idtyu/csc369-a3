@@ -398,6 +398,7 @@ int main(int argc, char **argv) {
 
 
      }
+     //common assgin
 
      curr_entry->inode = free_inode;
      curr_entry->name_len = strlen(dir);

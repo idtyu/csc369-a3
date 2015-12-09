@@ -265,8 +265,8 @@ int main(int argc, char **argv) {
             reset_bitmap(result_block[i],sb,gd,1);//reset block bitmap
         }
 
-        if (result_block[i]){ // for block[12], it is the single indirect
-            unsigned int *single_ind = (unsigned int *) (disk +  result_block[i] * EXT2_BLOCK_SIZE);
+        if (result_block[12]){ // for block[12], it is the single indirect
+            unsigned int *single_ind = (unsigned int *) (disk +  result_block[12] * EXT2_BLOCK_SIZE);
             int j;
             for (j = 0; single_ind[j] ; j++) {
                 reset_bitmap(single_ind[j], sb,gd,2); // 2 for set block bitmap to 0;
