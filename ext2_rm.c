@@ -18,9 +18,6 @@ struct ext2_inode* inode_table;
 //make them global
 
 int find_inode_index(char* dir, int i,struct ext2_inode* inode_table,int flag);
-void bitmap_reset(void* bitmap, int index, int value);
-void change_bitmap( struct ext2_inode result_inode, char* blockbitmap,char* inodebitmap,int inode_num);
-int count_free(char* bitmap,int total_num);
 
 #define MAX_PATH_DIR 100 /*the absolute path max have 100 die*/
 
@@ -156,11 +153,12 @@ int find_inode_index(char* dir, int inode_num, struct ext2_inode* inode_table, i
             
             
         int r_len = entry->rec_len;
+        memset(entry, 0, sizeof(struct ext2_dir_entry_2));
         entry = (void*)entry - last_rec_len;//return to last position
         entry->rec_len = r_len+last_rec_len; //junmp the target file length
         //printf("len: %d\n",entry->rec_len);
         //printf("about to return\n");
-        bitmap_reset(inodebitmap, return_value - 1, 0);
+        
         //clean_inode(int return_value);
         return return_value;
         //printf("last len: %d\n",last_rec_len);
@@ -174,43 +172,28 @@ int find_inode_index(char* dir, int inode_num, struct ext2_inode* inode_table, i
     return return_value;
 } 
 
-//void clean_inode(int inode_idx){
-    //struct ext2_inode target_inode = inode_table[inode_idx-1];
+
+void reset_bitmap(int num, struct ext2_super_block *sb, struct ext2_group_desc *gd, int flag){ // flag 1 for block, 2 for inode
     
-//}
-
-void bitmap_reset(void* bitmap, int index, int value){
-    unsigned int arrayPosition = index / 8;
-    unsigned int shiftPosition = index % 8;
-    char* byte = bitmap + arrayPosition;
-    
-    *byte = (*byte & ~(1 << shiftPosition)) | (value << shiftPosition);
-    //return 1;
-
-
-
-}
-
-int count_free(char* bitmap,int total_num){
-    int i;
-    int count = 0;
-    for (i = 0; i < total_num/8; ++i)
-    {
-        int bit;
-        for ( bit= 0; bit < 8; bit++){
-        count += (bitmap[i] >> bit)& 1;
-        }
+    char* bitmap;
+    if (flag == 1){
+        sb->s_free_blocks_count += 1;
+        bitmap = (char*)(disk + gd->bg_block_bitmap * 1024);
+    }else if (flag == 2){
+        sb->s_free_inodes_count += 1;
+        bitmap = (char*)(disk + gd->bg_inode_bitmap * 1024);
     }
-    return (total_num - count);
+
+    
+    char byte;
+    byte = bitmap[(num - 1) / 8];
+    int pos = (num - 1) % 8;
+
+    bitmap[(num - 1) / 8] = byte & ~(1 << pos);
+
 
 
 }
-   
-
-
-
-
-
 
 int main(int argc, char **argv) {
 
@@ -270,27 +253,42 @@ int main(int argc, char **argv) {
         exit(errno);
 
     }
+    
     //TODO
     struct ext2_inode result_inode = inode_table[inode_num - 1];
     result_inode.i_links_count -= 1;
-    int num_block = result_inode.i_size / EXT2_BLOCK_SIZE;
-    int idx;
-    for (idx=0; idx< num_block; idx++){
-        int block_num = result_inode.i_block[idx];
-        bitmap_reset(blockbitmap,block_num,0);
+    unsigned int * result_block = result_inode.i_block;
+    if (result_inode.i_links_count == 0){
+        reset_bitmap(inode_num,sb,gd,2);//reset target inode bitmap to 0
+        int i;
+        for (i = 0; i < 12 && result_block[i]; i++){
+            reset_bitmap(result_block[i],sb,gd,1);//reset block bitmap
+        }
+
+        if (result_block[i]){ // for block[12], it is the single indirect
+            unsigned int *single_ind = (unsigned int *) (disk +  result_block[i] * EXT2_BLOCK_SIZE);
+            int j;
+            for (j = 0; single_ind[j] ; j++) {
+                reset_bitmap(single_ind[j], sb,gd,2); // 2 for set block bitmap to 0;
+            }
+            reset_bitmap(result_block[i], sb,gd,2);
+
+        }
+        
+        //TODO set result_inode to 0
+        
+        inode_table[inode_num - 1].i_size = 0;
+        
+        
+
+        for (i = 0; i < 16; i++){
+            //printf("size: %d\n",result_inode.i_size);
+            inode_table[inode_num - 1].i_block[i] = 0;
+
+        }
 
     }
     
-
-
-
-
-    //ls_print(inode_table,inode_num-1);
-   //delete_inode(inode_table,inode_num -1)
-    gd->bg_free_blocks_count = count_free(blockbitmap,total_block);
-    //printf("done\n");
-    gd->bg_free_inodes_count = count_free(inodebitmap,total_inode);
-
    return 0;
 
 }
