@@ -167,7 +167,7 @@ int main(int argc, char **argv) {
     
     //check whether the path is valid
     if (path_name[0] != '/'){
-        fprintf(stderr, "Please provide valid absolute path");
+        fprintf(stderr, "Please provide valid absolute path\n");
         exit(1);
     }
 
