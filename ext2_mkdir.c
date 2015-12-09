@@ -344,6 +344,7 @@ int main(int argc, char **argv) {
       //dir is the name for new dir
      int new_dir_len = align4(strlen(dir)) + 8;
      struct ext2_inode parent_inode = inode_table[inode_num - 1];
+     inode_table[inode_num - 1].i_links_count += 1;
      //printf("parent_inode:%d\n", inode_num);
      int i;
      struct ext2_dir_entry_2* curr_entry;
